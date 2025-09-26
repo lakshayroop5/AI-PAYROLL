@@ -1,0 +1,240 @@
+// Prisma schema for AI Payroll System
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String   @id @default(cuid())
+  email                   String   @unique
+  roles                   String   @default("") // JSON string of roles array
+  selfVerificationStatus  Boolean  @default(false)
+  selfVerificationId      String?
+  selfVerifiedAt         DateTime?
+  githubLogin            String?  @unique
+  githubId               String?
+  githubAccessToken      String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  // Relations
+  contributorProfile     Contributor?
+  managedRepos          Repository[]
+  createdRuns           PayrollRun[]
+  accounts              Account[]
+  sessions              Session[]
+  
+  @@map("users")
+}
+
+// NextAuth.js Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model Contributor {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  hederaAccountId       String
+  tokenAssociations     String   @default("") // JSON string of token IDs array
+  active                Boolean  @default(true)
+  minPayoutThreshold    Float?
+  maxPayoutCap          Float?
+  githubHandle          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  // Relations
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payouts              Payout[]
+  
+  @@map("contributors")
+}
+
+model Repository {
+  id                   String   @id @default(cuid())
+  owner               String
+  name                String
+  fullName            String   @unique // "owner/name"
+  managerId           String
+  permissions         String   // JSON snapshot of permissions
+  includeLabels       String   @default("") // JSON string of labels to include
+  excludeLabels       String   @default("") // JSON string of labels to exclude
+  defaultBudgetUsd    Float?
+  defaultAsset        String?
+  active              Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  // Relations
+  manager            User       @relation(fields: [managerId], references: [id])
+  runs               PayrollRun[]
+  
+  @@map("repositories")
+}
+
+model PayrollRun {
+  id                  String   @id @default(cuid())
+  runNumber          Int      @default(1)
+  repoIds            String   @default("") // JSON string of repository IDs array
+  startDate          DateTime
+  endDate            DateTime
+  distributionMode   String   @default("PR_COUNT_PROPORTIONAL")
+  usdBudget          Float
+  asset              String   // "HBAR" or token ID
+  pythFeedId         String
+  priceSnapshot      String   // JSON: {value, timestamp, confidence}
+  status             String   @default("PENDING") // PENDING, PREVIEW_READY, APPROVED, EXECUTING, COMPLETED, FAILED
+  previewHash        String?
+  executionHash      String?
+  environment        String   @default("testnet") // "testnet" or "mainnet"
+  createdById        String
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  totalPrCount       Int      @default(0)
+  totalPayouts       Int      @default(0)
+  successfulPayouts  Int      @default(0)
+  failedPayouts      Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  // Relations
+  createdBy          User       @relation(fields: [createdById], references: [id])
+  repositories       Repository[]
+  runItems           RunItem[]
+  payouts            Payout[]
+  artifacts          Artifact[]
+  
+  @@map("payroll_runs")
+}
+
+model RunItem {
+  id              String     @id @default(cuid())
+  runId           String
+  repo            String     // "owner/name"
+  prNumber        Int
+  authorLogin     String
+  authorId        String?
+  mergedAt        DateTime
+  title           String
+  labels          String     @default("") // JSON string of PR labels array
+  linesAdded      Int?
+  linesDeleted    Int?
+  filesChanged    Int?
+  weight          Float      @default(1.0)
+  contributorId   String?
+  createdAt       DateTime   @default(now())
+  
+  // Relations
+  run             PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@unique([runId, repo, prNumber])
+  @@map("run_items")
+}
+
+model Payout {
+  id                String     @id @default(cuid())
+  runId             String
+  contributorId     String
+  prCount           Int        // Number of merged PRs for this contributor
+  shareRatio        Float      // Proportion of total distribution
+  usdAmount         Float      // USD amount allocated
+  nativeAmount      String     // Native amount in smallest unit (tinybar, etc.)
+  decimals          Int        // Decimal places for the asset
+  txId              String?    // Transaction ID for direct transfers
+  scheduleId        String?    // Schedule ID for scheduled transactions
+  status            String     @default("PENDING") // PENDING, SUBMITTED, CONFIRMED, FAILED
+  error             String?    // Error message if failed
+  submittedAt       DateTime?
+  confirmedAt       DateTime?
+  idempotencyKey    String     @unique // Prevents double payments
+  mirrorNodeUrl     String?    // Link to mirror node transaction
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  // Relations
+  run               PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  contributor       Contributor @relation(fields: [contributorId], references: [id])
+  
+  @@unique([runId, contributorId])
+  @@map("payouts")
+}
+
+model Artifact {
+  id              String     @id @default(cuid())
+  runId           String
+  type            String     // "csv" or "json"
+  filename        String
+  cid             String     // Lighthouse CID
+  size            Int        // File size in bytes
+  verified        Boolean    @default(false) // CID health check status
+  lastCheckedAt   DateTime?
+  createdAt       DateTime   @default(now())
+  
+  // Relations
+  run             PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@map("artifacts")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // Action performed
+  resource    String?  // Resource affected (run ID, user ID, etc.)
+  details     String   // JSON details of the action
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // JSON value
+  description String?
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_config")
+}

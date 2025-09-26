@@ -1,0 +1,13 @@
+{
+  "stylelint.validate": [
+    "css",
+    "scss",
+    "sass",
+    "less"
+  ],
+  "stylelint.enable": true,
+  "files.associations": {
+    "*.ts": "typescript",
+    "*.tsx": "typescriptreact"
+  }
+}
