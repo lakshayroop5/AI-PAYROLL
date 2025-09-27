@@ -20,10 +20,39 @@ interface Repository {
   createdAt: string;
 }
 
+interface GitHubRepository {
+  id: number;
+  name: string;
+  fullName: string;
+  owner: string;
+  description?: string | null;
+  private: boolean;
+  fork: boolean;
+  language?: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  updated_at: string;
+  html_url: string;
+  permissions?: {
+    admin: boolean;
+    maintain: boolean;
+  };
+  isAlreadyAdded: boolean;
+  isOrganization?: boolean;
+}
+
 export default function RepositoriesPage() {
   const { data: session } = useSession();
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // GitHub repository search states
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([]);
+  const [allGithubRepos, setAllGithubRepos] = useState<GitHubRepository[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [addingRepoId, setAddingRepoId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchRepositories();
@@ -35,13 +64,94 @@ export default function RepositoriesPage() {
       const response = await fetch('/api/repositories');
       if (response.ok) {
         const data = await response.json();
-        setRepositories(data.repositories || []);
+        setRepositories(data.storedRepos || []);
       }
     } catch (error) {
       console.error('Error fetching repositories:', error);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadAllGitHubRepos() {
+    try {
+      setSearchLoading(true);
+      const response = await fetch('/api/repositories/github');
+      if (response.ok) {
+        const data = await response.json();
+        const repos = data.repositories || [];
+        setAllGithubRepos(repos);
+        setGithubRepos(repos); // Show all initially
+      }
+    } catch (error) {
+      console.error('Error loading GitHub repositories:', error);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function filterRepositories(query: string) {
+    if (!query.trim()) {
+      setGithubRepos(allGithubRepos);
+    } else {
+      const filtered = allGithubRepos.filter(repo =>
+        repo.name.toLowerCase().includes(query.toLowerCase()) ||
+        repo.fullName.toLowerCase().includes(query.toLowerCase()) ||
+        (repo.description && repo.description.toLowerCase().includes(query.toLowerCase()))
+      );
+      setGithubRepos(filtered);
+    }
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    filterRepositories(value);
+  }
+
+  async function addRepository(githubRepo: GitHubRepository) {
+    try {
+      console.log('Adding repository:', githubRepo.fullName);
+      setAddingRepoId(githubRepo.id);
+      
+      const response = await fetch('/api/repositories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: githubRepo.fullName,
+          defaultBudgetUsd: 1000, // Default budget
+          defaultAsset: 'HBAR'
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Repository added successfully:', result);
+        
+        // Show success message
+        alert(`Successfully added repository: ${githubRepo.fullName}`);
+        
+        // Refresh both lists
+        await fetchRepositories();
+        await loadAllGitHubRepos();
+      } else {
+        const error = await response.json();
+        console.error('Failed to add repository:', error);
+        alert(`Failed to add repository: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error adding repository:', error);
+      alert('Failed to add repository. Please try again.');
+    } finally {
+      setAddingRepoId(null);
+    }
+  }
+
+  function openAddDialog() {
+    setShowAddDialog(true);
+    setSearchQuery(''); // Clear search when opening
+    loadAllGitHubRepos();
   }
 
   const isManager = session?.user.roles?.includes('manager');
@@ -68,7 +178,7 @@ export default function RepositoriesPage() {
               Manage GitHub repositories for payroll processing.
             </p>
           </div>
-          <Button>Add Repository</Button>
+          <Button onClick={openAddDialog}>Add Repository</Button>
         </div>
 
         {/* Repositories List */}
@@ -124,7 +234,7 @@ export default function RepositoriesPage() {
                   Get started by connecting your first GitHub repository.
                 </p>
                 <div className="mt-6">
-                  <Button>Add Repository</Button>
+                  <Button onClick={openAddDialog}>Add Repository</Button>
                 </div>
               </div>
             </div>
@@ -151,6 +261,172 @@ export default function RepositoriesPage() {
             </div>
           </div>
         </div>
+
+        {/* Add Repository Dialog */}
+        {showAddDialog && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              {/* Background overlay */}
+              <div 
+                className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                onClick={() => setShowAddDialog(false)}
+              ></div>
+
+              {/* Dialog */}
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="w-full">
+                      {/* Dialog Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          Add GitHub Repository
+                        </h3>
+                        <button
+                          onClick={() => setShowAddDialog(false)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Select from your personal and organization repositories where you have admin/maintainer access
+                      </p>
+
+                      {/* Search Bar */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Search Repositories
+                        </label>
+                        <div className="flex gap-3">
+                          <input
+                            type="text"
+                            placeholder="Filter repositories by name or description..."
+                            value={searchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          {searchQuery && (
+                            <Button 
+                              onClick={() => handleSearchChange('')}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Repository Count */}
+                      {!searchLoading && allGithubRepos.length > 0 && (
+                        <div className="mb-3 text-sm text-gray-600">
+                          {searchQuery 
+                            ? `Showing ${githubRepos.length} of ${allGithubRepos.length} repositories`
+                            : `${allGithubRepos.length} repositories with admin access`
+                          }
+                        </div>
+                      )}
+
+                      {/* Repository List */}
+                      <div className="max-h-96 overflow-y-auto">
+                        {searchLoading ? (
+                          <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-2 text-sm text-gray-500">Loading your repositories...</p>
+                          </div>
+                        ) : githubRepos.length > 0 ? (
+                          <div className="space-y-3">
+                            {githubRepos.map((repo) => (
+                              <div key={repo.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                                        {repo.fullName}
+                                      </h4>
+                                      {repo.private && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                          Private
+                                        </span>
+                                      )}
+                                      {repo.fork && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                          Fork
+                                        </span>
+                                      )}
+                                      {repo.isOrganization && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                          Organization
+                                        </span>
+                                      )}
+                                    </div>
+                                    {repo.description && (
+                                      <p className="text-sm text-gray-600 mb-2">{repo.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                                      {repo.language && (
+                                        <span className="flex items-center gap-1">
+                                          <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+                                          {repo.language}
+                                        </span>
+                                      )}
+                                      <span className="flex items-center gap-1">
+                                        ⭐ {repo.stargazers_count}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        🍴 {repo.forks_count}
+                                      </span>
+                                      <span>
+                                        Updated {new Date(repo.updated_at).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="ml-4 flex-shrink-0">
+                                    {repo.isAlreadyAdded ? (
+                                      <span className="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium bg-green-100 text-green-800">
+                                        ✓ Added
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          console.log('Button clicked for repo:', repo.fullName);
+                                          addRepository(repo);
+                                        }}
+                                        disabled={addingRepoId === repo.id}
+                                      >
+                                        {addingRepoId === repo.id ? 'Adding...' : 'Add Repository'}
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <div className="text-gray-500">
+                              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                              <h3 className="mt-2 text-sm font-medium text-gray-900">No repositories found</h3>
+                              <p className="mt-1 text-sm text-gray-500">
+                                Try searching for a different repository name or check if you have admin access.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -215,8 +215,8 @@ async function handlePreview(userId: string, config: any) {
       repos: repositories.map(r => r.fullName),
       startDate: config.startDate,
       endDate: config.endDate,
-      includeLabels: repositories.flatMap(r => r.includeLabels),
-      excludeLabels: repositories.flatMap(r => r.excludeLabels)
+      includeLabels: repositories.flatMap(r => JSON.parse(r.includeLabels || "[]")),
+      excludeLabels: repositories.flatMap(r => JSON.parse(r.excludeLabels || "[]"))
     });
 
     // Get current price from Pyth

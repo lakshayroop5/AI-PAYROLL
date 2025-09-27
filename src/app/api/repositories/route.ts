@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // Filter repositories where user has admin/maintain permissions
     const adminRepos = githubRepos.filter(repo => 
-      repo.permissions.admin || repo.permissions.maintain
+      repo.permissions && (repo.permissions.admin || repo.permissions.maintain)
     );
 
     // Get stored repositories
@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
         active: repo.active,
         defaultBudgetUsd: repo.defaultBudgetUsd,
         defaultAsset: repo.defaultAsset,
+        includeLabels: JSON.parse(repo.includeLabels || "[]"),
+        excludeLabels: JSON.parse(repo.excludeLabels || "[]"),
         createdAt: repo.createdAt
       }))
     });
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
     try {
       const repo = await githubService.getRepo(owner, name);
       
-      if (!repo.permissions.admin && !repo.permissions.maintain) {
+      if (!repo.permissions || (!repo.permissions.admin && !repo.permissions.maintain)) {
         return NextResponse.json({ error: 'Insufficient permissions for repository' }, { status: 403 });
       }
 
@@ -119,8 +121,8 @@ export async function POST(request: NextRequest) {
           fullName,
           managerId: session.user.id,
           permissions: JSON.stringify(repo.permissions),
-          includeLabels: includeLabels || [],
-          excludeLabels: excludeLabels || [],
+          includeLabels: JSON.stringify(includeLabels || []),
+          excludeLabels: JSON.stringify(excludeLabels || []),
           defaultBudgetUsd,
           defaultAsset,
           active: true
@@ -196,8 +198,8 @@ export async function PUT(request: NextRequest) {
       data: {
         defaultBudgetUsd,
         defaultAsset,
-        includeLabels: includeLabels || repository.includeLabels,
-        excludeLabels: excludeLabels || repository.excludeLabels,
+        includeLabels: includeLabels ? JSON.stringify(includeLabels) : repository.includeLabels,
+        excludeLabels: excludeLabels ? JSON.stringify(excludeLabels) : repository.excludeLabels,
         active: active !== undefined ? active : repository.active,
         updatedAt: new Date()
       }
@@ -220,8 +222,8 @@ export async function PUT(request: NextRequest) {
         active: updatedRepo.active,
         defaultBudgetUsd: updatedRepo.defaultBudgetUsd,
         defaultAsset: updatedRepo.defaultAsset,
-        includeLabels: updatedRepo.includeLabels,
-        excludeLabels: updatedRepo.excludeLabels,
+        includeLabels: JSON.parse(updatedRepo.includeLabels || "[]"),
+        excludeLabels: JSON.parse(updatedRepo.excludeLabels || "[]"),
         updatedAt: updatedRepo.updatedAt
       }
     });

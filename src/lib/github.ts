@@ -13,7 +13,7 @@ export interface GitHubRepo {
     login: string;
     id: number;
   };
-  permissions: {
+  permissions?: {
     admin: boolean;
     maintain: boolean;
     push: boolean;
@@ -23,6 +23,12 @@ export interface GitHubRepo {
   private: boolean;
   created_at: string;
   updated_at: string;
+  description?: string | null;
+  fork: boolean;
+  language?: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  html_url: string;
 }
 
 export interface GitHubPR {
@@ -92,21 +98,143 @@ export class GitHubService {
   /**
    * Get repositories accessible to the authenticated user
    */
-  async getUserRepos(page = 1, perPage = 100): Promise<GitHubRepo[]> {
+  async getUserRepos(options: {
+    page?: number;
+    per_page?: number;
+    sort?: 'created' | 'updated' | 'pushed' | 'full_name';
+    type?: 'all' | 'owner' | 'public' | 'private' | 'member';
+  } = {}): Promise<GitHubRepo[]> {
     try {
       await this.respectRateLimit();
       
-      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
-        visibility: 'all',
-        affiliation: 'owner,collaborator,organization_member',
-        sort: 'updated',
-        per_page: perPage,
-        page,
-      });
+      // GitHub API: Cannot use both visibility/affiliation AND type parameters
+      const requestParams: any = {
+        sort: options.sort || 'updated',
+        per_page: options.per_page || 100,
+        page: options.page || 1,
+      };
+
+      // Use either type OR visibility/affiliation, not both
+      if (options.type && options.type !== 'all') {
+        requestParams.type = options.type;
+      } else {
+        requestParams.visibility = 'all';
+        requestParams.affiliation = 'owner,collaborator,organization_member';
+      }
+
+      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser(requestParams);
 
       return data as GitHubRepo[];
     } catch (error) {
       throw new Error(`Failed to fetch repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get organization repositories where user has admin/maintain permissions
+   */
+  async getOrganizationRepos(options: {
+    page?: number;
+    per_page?: number;
+    sort?: 'created' | 'updated' | 'pushed' | 'full_name';
+  } = {}): Promise<GitHubRepo[]> {
+    try {
+      await this.respectRateLimit();
+      
+      // Get user's organizations
+      const { data: orgs } = await this.octokit.rest.orgs.listForAuthenticatedUser({
+        per_page: 100
+      });
+
+      const orgRepos: GitHubRepo[] = [];
+
+      // For each organization, get repositories where user has admin/maintain permissions
+      for (const org of orgs) {
+        try {
+          await this.respectRateLimit();
+          
+          const { data: repos } = await this.octokit.rest.repos.listForOrg({
+            org: org.login,
+            sort: options.sort || 'updated',
+            per_page: options.per_page || 100,
+            page: options.page || 1,
+          });
+
+          // Filter repos where user has admin/maintain permissions
+          const adminRepos = repos.filter((repo: any) => 
+            repo.permissions && (repo.permissions.admin || repo.permissions.maintain)
+          );
+
+          orgRepos.push(...adminRepos as GitHubRepo[]);
+        } catch (orgError) {
+          // Skip organizations where we can't access repos
+          console.warn(`Could not access repos for org ${org.login}:`, orgError);
+        }
+      }
+
+      return orgRepos;
+    } catch (error) {
+      throw new Error(`Failed to fetch organization repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get all repositories (personal + organization) where user has admin/maintain permissions
+   */
+  async getAllAdminRepos(options: {
+    page?: number;
+    per_page?: number;
+    sort?: 'created' | 'updated' | 'pushed' | 'full_name';
+  } = {}): Promise<GitHubRepo[]> {
+    try {
+      // Get personal and collaborative repositories
+      const personalRepos = await this.getUserRepos(options);
+      
+      // Get organization repositories
+      const orgRepos = await this.getOrganizationRepos(options);
+      
+      // Combine and deduplicate
+      const allRepos = [...personalRepos, ...orgRepos];
+      const uniqueRepos = allRepos.filter((repo, index, arr) => 
+        index === arr.findIndex(r => r.id === repo.id)
+      );
+      
+      // Filter only admin/maintain permissions
+      return uniqueRepos.filter(repo => 
+        repo.permissions && (repo.permissions.admin || repo.permissions.maintain)
+      );
+    } catch (error) {
+      throw new Error(`Failed to fetch all admin repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Search repositories for the authenticated user
+   */
+  async searchUserRepos(query: string, options: {
+    page?: number;
+    per_page?: number;
+    sort?: 'stars' | 'forks' | 'help-wanted-issues' | 'updated';
+    order?: 'asc' | 'desc';
+  } = {}): Promise<GitHubRepo[]> {
+    try {
+      await this.respectRateLimit();
+      
+      // First get the authenticated user to build search query
+      const user = await this.getAuthenticatedUser();
+      const searchQuery = `${query} user:${user.login}`;
+      
+      const { data } = await this.octokit.rest.search.repos({
+        q: searchQuery,
+        sort: options.sort || 'updated',
+        order: options.order || 'desc',
+        per_page: options.per_page || 30,
+        page: options.page || 1,
+      });
+
+      return data.items as GitHubRepo[];
+    } catch (error) {
+      throw new Error(`Failed to search repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
