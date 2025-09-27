@@ -3,6 +3,8 @@
  * Handles Self proof requests and verification for managers and contributors
  */
 
+import QRCode from 'qrcode';
+
 export interface SelfProofRequest {
   requestId: string;
   proofType: 'identity' | 'personhood';
@@ -220,11 +222,29 @@ export class SelfIdentityService {
    * Generate QR code for mobile Self app
    */
   async generateProofQRCode(proofRequest: SelfProofRequest): Promise<string> {
-    const proofUrl = `${this.baseUrl}/proof/${proofRequest.requestId}`;
-    
-    // In a real implementation, generate actual QR code
-    // For now, return the URL that would be encoded
-    return proofUrl;
+    try {
+      // Create the Self verification URL
+      const selfUrl = `self://verify?requestId=${proofRequest.requestId}&challenge=${encodeURIComponent(proofRequest.challenge)}&appId=${this.appId}`;
+      
+      // Generate QR code as data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(selfUrl, {
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        quality: 0.92,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        width: 256
+      });
+      
+      return qrCodeDataUrl;
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      // Fallback to URL if QR generation fails
+      return `${this.baseUrl}/proof/${proofRequest.requestId}`;
+    }
   }
 
   /**

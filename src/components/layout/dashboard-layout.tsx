@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {session.user.name || session.user.email}
                 </p>
-                <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center mt-1">
                   {session.user.selfVerified ? (
                     <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
                       ✓ Verified
@@ -105,11 +105,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       ⚠ Unverified
                     </span>
                   )}
-                  {session.user.roles?.map(role => (
-                    <span key={role} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                      {role}
-                    </span>
-                  ))}
                 </div>
               </div>
             </div>
