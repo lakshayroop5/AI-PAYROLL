@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { SafeLink } from '@/components/ui/safe-link';
 import { Button } from '@/components/ui/button';
 import DashboardLayout from '@/components/layout/dashboard-layout';
+import BalanceTracker from '@/components/BalanceTracker';
 import { formatCurrency, formatDate, getStatusColor, cn } from '@/lib/utils';
 
 interface DashboardStats {
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userWallet, setUserWallet] = useState<string>('');
 
   useEffect(() => {
     fetchDashboardData();
@@ -54,6 +56,13 @@ export default function DashboardPage() {
       if (activityResponse.ok) {
         const activityData = await activityResponse.json();
         setRecentActivity(activityData.activities || []);
+      }
+
+      // Fetch user wallet address
+      const walletResponse = await fetch('/api/settings/manager-wallet');
+      if (walletResponse.ok) {
+        const walletData = await walletResponse.json();
+        setUserWallet(walletData.walletAddress || '');
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -117,6 +126,14 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* PYUSD Balance Tracker */}
+        {isManager && userWallet && (
+          <BalanceTracker 
+            walletAddress={userWallet}
+            managerName={session?.user.email || 'Manager'}
+          />
         )}
 
         {/* Quick Actions */}

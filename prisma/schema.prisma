@@ -28,6 +28,8 @@ model User {
   createdRuns           PayrollRun[]
   accounts              Account[]
   sessions              Session[]
+  donations             Donation[]
+  donationPage          DonationPage?
   
   @@map("users")
 }
@@ -111,6 +113,7 @@ model Repository {
   runs               PayrollRun[]
   agent              RepoAgent?
   automatedPayroll   AutomatedPayroll[]
+  donations          Donation[]
   
   @@map("repositories")
 }
@@ -423,4 +426,57 @@ model NotificationQueue {
   updatedAt         DateTime @updatedAt
   
   @@map("notification_queue")
+}
+
+model Donation {
+  id                String   @id @default(cuid())
+  repositoryId      String?  // Optional: donation for specific repo
+  managerId         String   // Manager receiving the donation
+  companyName       String?  // Name of donating company
+  donorEmail        String?  // Donor contact email
+  amount            Float    // Amount in USD
+  currency          String   @default("PYUSD") // PYUSD, HBAR, ETH, etc.
+  cryptoAmount      String?  // Amount in crypto units
+  transactionHash   String?  // Blockchain transaction hash
+  paymentMethod     String   @default("PYUSD") // PYUSD, PayPal, Crypto
+  status            String   @default("PENDING") // PENDING, CONFIRMED, FAILED, CANCELLED
+  message           String?  // Optional message from donor
+  qrCodeGenerated   Boolean  @default(false)
+  paymentAddress    String?  // Wallet address used for payment
+  network           String   @default("testnet") // testnet, mainnet
+  confirmedAt       DateTime?
+  metadata          String   @default("{}") // JSON: additional payment data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  manager           User     @relation(fields: [managerId], references: [id])
+  repository        Repository? @relation(fields: [repositoryId], references: [id])
+  
+  @@map("donations")
+}
+
+model DonationPage {
+  id                String   @id @default(cuid())
+  managerId         String   @unique // One donation page per manager
+  slug              String   @unique // URL slug for the donation page
+  pageTitle         String   @default("Support Our Open Source Work")
+  description       String?  // Custom description for the donation page
+  isActive          Boolean  @default(true)
+  acceptedCurrencies String  @default("[\"PYUSD\", \"PayPal\"]") // JSON array of accepted currencies
+  minimumAmount     Float?   // Minimum donation amount
+  maximumAmount     Float?   // Maximum donation amount
+  customMessage     String?  // Custom thank you message
+  logoUrl           String?  // Custom logo for the page
+  themeColor        String   @default("#0052CC") // Hex color for theme
+  totalDonations    Float    @default(0) // Total donations received
+  donationCount     Int      @default(0) // Number of donations
+  lastDonationAt    DateTime? // Last donation timestamp
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  manager           User     @relation(fields: [managerId], references: [id])
+  
+  @@map("donation_pages")
 }

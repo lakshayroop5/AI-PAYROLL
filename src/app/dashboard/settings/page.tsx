@@ -21,9 +21,20 @@ export default function SettingsPage() {
   const [editingWallet, setEditingWallet] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentWallet, setCurrentWallet] = useState('');
+  const [donationPage, setDonationPage] = useState<any>(null);
+  const [creatingDonationPage, setCreatingDonationPage] = useState(false);
+  const [donationPageForm, setDonationPageForm] = useState({
+    slug: '',
+    pageTitle: 'Support Our Open Source Work',
+    description: 'Help us continue building amazing open source software!',
+    customMessage: 'Thank you for supporting our work! Every donation helps us maintain and improve our projects.',
+    minimumAmount: 1,
+    maximumAmount: 1000
+  });
 
   useEffect(() => {
     fetchManagerWallet();
+    fetchDonationPage();
   }, []);
 
   async function fetchManagerWallet() {
@@ -87,6 +98,47 @@ export default function SettingsPage() {
   function cancelEditWallet() {
     setManagerWallet(currentWallet);
     setEditingWallet(false);
+  }
+
+  async function fetchDonationPage() {
+    try {
+      const response = await fetch('/api/settings/donation-page');
+      if (response.ok) {
+        const data = await response.json();
+        setDonationPage(data.donationPage);
+      }
+    } catch (error) {
+      console.error('Error fetching donation page:', error);
+    }
+  }
+
+  async function createDonationPage() {
+    if (!donationPageForm.slug.trim()) {
+      alert('Please enter a URL slug for your donation page');
+      return;
+    }
+
+    setCreatingDonationPage(true);
+    try {
+      const response = await fetch('/api/settings/donation-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(donationPageForm)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDonationPage(data.donationPage);
+        alert('✅ Donation page created successfully!');
+      } else {
+        const error = await response.json();
+        alert(`❌ Failed to create donation page: ${error.error}`);
+      }
+    } catch (error) {
+      alert('❌ Error creating donation page');
+    } finally {
+      setCreatingDonationPage(false);
+    }
   }
 
   return (
@@ -204,6 +256,173 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Company Donation Page */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Company Donation Page</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Create a dedicated page for companies to donate PYUSD to support your open source work
+            </p>
+          </div>
+          <div className="p-6">
+            {donationPage ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <span className="text-2xl">🎉</span>
+                    <div>
+                      <h4 className="font-medium text-green-900">Donation Page Active</h4>
+                      <p className="text-green-700 text-sm mt-1">
+                        Your donation page is live and ready to receive PYUSD donations from companies.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Page URL</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <code className="flex-1 p-3 bg-gray-100 rounded text-sm">
+                        /donate/{donationPage.slug}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/donate/${donationPage.slug}`, '_blank')}
+                      >
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Statistics</label>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-sm">Total: <span className="font-medium">${donationPage.totalDonations}</span></p>
+                      <p className="text-sm">Count: <span className="font-medium">{donationPage.donationCount}</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : currentWallet ? (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <span className="text-2xl">💰</span>
+                    <div>
+                      <h4 className="font-medium text-blue-900">Ready to Create Donation Page</h4>
+                      <p className="text-blue-700 text-sm mt-1">
+                        Your wallet is configured! Create a donation page to start receiving PYUSD donations from companies.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      URL Slug *
+                    </label>
+                    <input
+                      type="text"
+                      value={donationPageForm.slug}
+                      onChange={(e) => setDonationPageForm({...donationPageForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')})}
+                      placeholder="my-project"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      URL: /donate/{donationPageForm.slug || 'your-slug'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Page Title
+                    </label>
+                    <input
+                      type="text"
+                      value={donationPageForm.pageTitle}
+                      onChange={(e) => setDonationPageForm({...donationPageForm, pageTitle: e.target.value})}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={donationPageForm.description}
+                    onChange={(e) => setDonationPageForm({...donationPageForm, description: e.target.value})}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={donationPageForm.minimumAmount}
+                      onChange={(e) => setDonationPageForm({...donationPageForm, minimumAmount: parseFloat(e.target.value) || 1})}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={donationPageForm.maximumAmount}
+                      onChange={(e) => setDonationPageForm({...donationPageForm, maximumAmount: parseFloat(e.target.value) || 1000})}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom Thank You Message
+                  </label>
+                  <textarea
+                    value={donationPageForm.customMessage}
+                    onChange={(e) => setDonationPageForm({...donationPageForm, customMessage: e.target.value})}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                  />
+                </div>
+
+                <Button 
+                  onClick={createDonationPage}
+                  disabled={!donationPageForm.slug.trim() || creatingDonationPage}
+                >
+                  {creatingDonationPage ? 'Creating...' : 'Create Donation Page'}
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <h4 className="font-medium text-yellow-900">Wallet Required</h4>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      Please configure your payment wallet above before creating a donation page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
