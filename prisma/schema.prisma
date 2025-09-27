@@ -18,6 +18,7 @@ model User {
   githubLogin            String?  @unique
   githubId               String?
   githubAccessToken      String?
+  managerWalletAddress   String?  // Manager's wallet for receiving corporate payments
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   

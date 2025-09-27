@@ -95,7 +95,7 @@ export class RepoAgentService {
   }
 
   /**
-   * Perform direct agent setup without webhooks
+   * Perform direct agent setup with full integration support
    */
   static async performDirectSetup(
     agentId: string,
@@ -103,31 +103,101 @@ export class RepoAgentService {
     config: AgentConfig
   ): Promise<void> {
     try {
-      // Simulate setup tasks that would be done by webhooks
+      console.log(`Setting up integrated agent for repository ${repositoryId}`);
       
-      // 1. Setup subgraph (placeholder - would normally create subgraph deployment)
-      console.log(`Setting up subgraph for agent ${agentId}`);
+      // Get repository details
+      const repository = await prisma.repository.findUnique({
+        where: { id: repositoryId }
+      });
       
-      // 2. Setup ASI agent (placeholder - would normally configure ASI agent)
-      console.log(`Setting up ASI agent for agent ${agentId}`);
+      if (!repository) {
+        throw new Error('Repository not found');
+      }
+
+      // 1. Deploy The Graph subgraph
+      console.log(`Setting up subgraph for ${repository.fullName}`);
+      const { GraphClient } = await import('../integrations/graph-client');
+      const graphClient = new GraphClient();
       
-      // 3. Initial analytics sync (placeholder - would normally fetch initial data)
-      console.log(`Performing initial analytics sync for agent ${agentId}`);
+      const [owner, name] = repository.fullName.split('/');
+      const subgraphUrl = await graphClient.deploySubgraph({
+        repositoryId,
+        owner,
+        name,
+        githubToken: process.env.GITHUB_TOKEN
+      });
       
-      // Update agent status to ACTIVE
+      // 2. Initialize Fetch.ai agent
+      console.log(`Initializing Fetch.ai agent for ${repository.fullName}`);
+      const { FetchAIAgentService } = await import('../integrations/fetch-ai-agent');
+      const fetchAIService = new FetchAIAgentService();
+      
+      const fetchAIAgentId = await fetchAIService.initializeAgent({
+        name: `repo-agent-${repository.fullName.replace('/', '-')}`,
+        repositoryId,
+        tasks: [],
+        schedule: {
+          analytics: '0 */2 * * *', // Every 2 hours
+          invoicing: '0 6 * * *',  // Daily at 6 AM
+          payroll: '0 9 * * 1'     // Weekly on Monday at 9 AM
+        }
+      });
+      
+      // 3. Initial analytics sync
+      console.log(`Performing initial analytics sync for ${repository.fullName}`);
+      await fetchAIService.executeAnalyticsSync(repositoryId);
+      
+      // 4. Schedule recurring tasks
+      console.log(`Scheduling recurring tasks for agent ${fetchAIAgentId}`);
+      await fetchAIService.scheduleTasks(fetchAIAgentId, repositoryId);
+      
+      // Update agent status to ACTIVE with integration details
       await prisma.repoAgent.update({
         where: { id: agentId },
         data: {
           status: 'ACTIVE',
+          agentId: fetchAIAgentId,
+          subgraphUrl: subgraphUrl,
           activatedAt: new Date(),
           lastSyncAt: new Date(),
+          metadata: JSON.stringify({
+            ...config,
+            integrations: {
+              graph: { subgraphUrl },
+              fetchAI: { agentId: fetchAIAgentId },
+              setupCompletedAt: new Date().toISOString()
+            }
+          }),
           updatedAt: new Date()
         }
       });
       
-      console.log(`Agent ${agentId} successfully activated`);
+      // Send system notification about successful setup
+      const { EmailService } = await import('../integrations/email-service');
+      const emailService = new EmailService({
+        apiKey: process.env.SENDGRID_API_KEY || '',
+        fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
+        fromName: 'AI Payroll System'
+      });
+      
+      await emailService.sendSystemNotification(
+        'Repository Agent Activated',
+        `Repository monitoring agent has been successfully activated for ${repository.fullName}.\n\n` +
+        `Features enabled:\n` +
+        `- The Graph analytics indexing\n` +
+        `- Fetch.ai automated task scheduling\n` +
+        `- Corporate usage detection\n` +
+        `- Automated invoice generation\n` +
+        `- Hedera payment processing\n\n` +
+        `Agent ID: ${agentId}\n` +
+        `Fetch.ai Agent: ${fetchAIAgentId}\n` +
+        `Subgraph: ${subgraphUrl}`,
+        'normal'
+      );
+      
+      console.log(`Agent ${agentId} successfully activated with full integrations`);
     } catch (error) {
-      console.error(`Error during direct setup for agent ${agentId}:`, error);
+      console.error(`Error during integrated setup for agent ${agentId}:`, error);
       
       // Update agent status to ERROR
       await prisma.repoAgent.update({
@@ -139,6 +209,28 @@ export class RepoAgentService {
           updatedAt: new Date()
         }
       });
+      
+      // Send error notification
+      try {
+        const { EmailService } = await import('../integrations/email-service');
+        const emailService = new EmailService({
+          apiKey: process.env.SENDGRID_API_KEY || '',
+          fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
+          fromName: 'AI Payroll System'
+        });
+        
+        await emailService.sendSystemNotification(
+          'Repository Agent Setup Failed',
+          `Failed to activate repository monitoring agent.\n\n` +
+          `Repository ID: ${repositoryId}\n` +
+          `Agent ID: ${agentId}\n` +
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
+          `Please check the system logs and retry the setup process.`,
+          'high'
+        );
+      } catch (emailError) {
+        console.error('Failed to send error notification:', emailError);
+      }
       
       throw error;
     }

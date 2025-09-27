@@ -471,6 +471,71 @@ export class GitHubService {
   }
 
   /**
+   * Get repository contributors
+   */
+  async getRepoContributors(owner: string, repo: string) {
+    try {
+      await this.respectRateLimit();
+      
+      console.log(`📊 Fetching contributors for ${owner}/${repo}...`);
+      
+      const { data } = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 100
+      });
+
+      console.log(`✅ Found ${data.length} contributors for ${owner}/${repo}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Failed to get contributors for ${owner}/${repo}:`, error);
+      throw new Error(`Failed to get repository contributors: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get repository collaborators (includes maintainers)
+   */
+  async getRepoCollaborators(owner: string, repo: string) {
+    try {
+      await this.respectRateLimit();
+      
+      console.log(`👥 Fetching collaborators for ${owner}/${repo}...`);
+      
+      const { data } = await this.octokit.rest.repos.listCollaborators({
+        owner,
+        repo,
+        per_page: 100
+      });
+
+      console.log(`✅ Found ${data.length} collaborators for ${owner}/${repo}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Failed to get collaborators for ${owner}/${repo}:`, error);
+      // Don't throw error for collaborators as it might be private repo
+      return [];
+    }
+  }
+
+  /**
+   * Get user details
+   */
+  async getUser(username: string) {
+    try {
+      await this.respectRateLimit();
+      
+      const { data } = await this.octokit.rest.users.getByUsername({
+        username
+      });
+
+      return data;
+    } catch (error) {
+      console.error(`Failed to get user ${username}:`, error);
+      throw new Error(`Failed to get user details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Get current rate limit status
    */
   async getRateLimitStatus() {

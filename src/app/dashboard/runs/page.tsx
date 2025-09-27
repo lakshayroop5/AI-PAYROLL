@@ -27,6 +27,7 @@ export default function PayrollRunsPage() {
   const { data: session } = useSession();
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [executing, setExecuting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPayrollRuns();
@@ -44,6 +45,30 @@ export default function PayrollRunsPage() {
       console.error('Error fetching payroll runs:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function executePayrollWithHedera(runId: string) {
+    try {
+      setExecuting(runId);
+      const response = await fetch('/api/payroll/execute-hedera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payrollRunId: runId })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Payroll executed successfully!\nTransaction: ${result.data.transactionId}\nPayments: ${result.data.paymentsCount}\n\nView on Hedera Explorer: ${result.data.hederaExplorer}`);
+        fetchPayrollRuns(); // Refresh the list
+      } else {
+        alert(`❌ Payroll execution failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`❌ Error executing payroll: ${error}`);
+    } finally {
+      setExecuting(null);
     }
   }
 
@@ -125,6 +150,23 @@ export default function PayrollRunsPage() {
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(run.status)}`}>
                         {run.status}
                       </span>
+                      {run.status === 'APPROVED' && (
+                        <Button 
+                          onClick={() => executePayrollWithHedera(run.id)}
+                          disabled={executing === run.id}
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          {executing === run.id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                              Paying...
+                            </>
+                          ) : (
+                            <>💎 Pay with Hedera</>
+                          )}
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm">
                         View Details
                       </Button>
