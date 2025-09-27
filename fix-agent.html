@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix Stuck Agent</title>
+</head>
+<body>
+    <h1>Fix Stuck Repository Agent</h1>
+    <button id="fixButton">Fix Stuck Agent</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('fixButton').addEventListener('click', async () => {
+            const repoId = 'cmg1lczsg0003u6dc9x40jm7l'; // From your screenshot
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                resultDiv.innerHTML = 'Fixing agent...';
+                
+                const response = await fetch(`/api/repositories/${repoId}/analytics`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'initialize_agent'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p style="color: green;">✅ ${result.message}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${result.error}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

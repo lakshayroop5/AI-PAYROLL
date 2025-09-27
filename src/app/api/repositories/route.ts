@@ -136,6 +136,23 @@ export async function POST(request: NextRequest) {
         { fullName, defaultBudgetUsd, defaultAsset }
       );
 
+      // Initialize monitoring agent for the repository
+      try {
+        const { RepoAgentService } = await import('@/lib/monitoring/repo-agent');
+        await RepoAgentService.initializeAgent(
+          storedRepo.id,
+          session.user.id,
+          {
+            enableAnalytics: true,
+            enableCorporateDetection: true,
+            syncInterval: 3600 // 1 hour
+          }
+        );
+      } catch (agentError) {
+        console.error('Error initializing repo agent:', agentError);
+        // Don't fail the repository addition if agent initialization fails
+      }
+
       return NextResponse.json({
         success: true,
         repository: {

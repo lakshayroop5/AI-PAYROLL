@@ -108,6 +108,8 @@ model Repository {
   // Relations
   manager            User       @relation(fields: [managerId], references: [id])
   runs               PayrollRun[]
+  agent              RepoAgent?
+  automatedPayroll   AutomatedPayroll[]
   
   @@map("repositories")
 }
@@ -237,4 +239,187 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
   
   @@map("system_config")
+}
+
+// Monitoring and Analytics Models
+model RepoAgent {
+  id                String   @id @default(cuid())
+  repositoryId      String   @unique
+  agentId           String?  // External agent ID (ASI/Fetch.ai)
+  status            String   @default("INITIALIZING") // INITIALIZING, ACTIVE, PAUSED, ERROR, STOPPED
+  subgraphUrl       String?  // The Graph subgraph endpoint
+  lastSyncAt        DateTime?
+  syncInterval      Int      @default(3600) // Seconds between syncs (default 1 hour)
+  errorCount        Int      @default(0)
+  lastError         String?
+  metadata          String   @default("{}") // JSON metadata about agent config
+  activatedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  repository        Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  analytics         RepoAnalytics[]
+  corporateUsers    CorporateUser[]
+  invoices          Invoice[]
+  
+  @@map("repo_agents")
+}
+
+model RepoAnalytics {
+  id                String   @id @default(cuid())
+  agentId           String
+  date              DateTime // Date for this analytics snapshot
+  totalContributors Int      @default(0)
+  totalPRs          Int      @default(0)
+  totalCommits      Int      @default(0)
+  totalStars        Int      @default(0)
+  totalForks        Int      @default(0)
+  totalClones       Int      @default(0)
+  totalViews        Int      @default(0)
+  newContributors   Int      @default(0)
+  activeContributors Int     @default(0)
+  corporateActivity Int      @default(0) // Detected corporate usage signals
+  contributorStats  String   @default("{}") // JSON: detailed per-contributor stats
+  rawData          String    @default("{}") // JSON: raw analytics data from sources
+  createdAt        DateTime  @default(now())
+  
+  // Relations
+  agent            RepoAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  @@unique([agentId, date])
+  @@map("repo_analytics")
+}
+
+model CorporateUser {
+  id                String   @id @default(cuid())
+  agentId           String
+  organizationName  String?
+  domain            String?
+  githubLogin       String?
+  githubOrgId       String?
+  email             String?
+  detectionMethod   String   // "domain", "org_membership", "usage_pattern", "manual"
+  confidence        Float    @default(0.0) // 0-1 confidence score
+  firstDetected     DateTime @default(now())
+  lastActivity      DateTime @default(now())
+  totalActivity     Int      @default(0)
+  usageMetrics      String   @default("{}") // JSON: clones, views, API calls, etc.
+  status            String   @default("DETECTED") // DETECTED, VERIFIED, INVOICED, PAID, BLOCKED
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  agent             RepoAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  invoices          Invoice[]
+  
+  @@unique([agentId, githubLogin])
+  @@map("corporate_users")
+}
+
+model Invoice {
+  id                String   @id @default(cuid())
+  invoiceNumber     String   @unique
+  agentId           String
+  corporateUserId   String?
+  organizationName  String
+  amount            Float    // USD amount
+  currency          String   @default("USD")
+  period            String   // Billing period description
+  dueDate           DateTime
+  status            String   @default("PENDING") // PENDING, SENT, PAID, OVERDUE, CANCELLED
+  paymentMethod     String?  // Expected payment method
+  walletAddress     String?  // Crypto wallet for payment
+  usageData         String   @default("{}") // JSON: usage breakdown
+  pdfPath           String?  // Path to generated PDF
+  emailSent         Boolean  @default(false)
+  emailSentAt       DateTime?
+  paidAmount        Float?
+  paidAt            DateTime?
+  transactionHash   String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  agent             RepoAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  corporateUser     CorporateUser? @relation(fields: [corporateUserId], references: [id])
+  payments          Payment[]
+  
+  @@map("invoices")
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  amount            Float
+  currency          String   @default("USD")
+  cryptoAmount      String?  // Amount in crypto
+  cryptoCurrency    String?  // HBAR, MATIC, etc.
+  transactionHash   String   @unique
+  blockNumber       String?
+  fromAddress       String
+  toAddress         String
+  network           String   // "hedera-testnet", "polygon", etc.
+  status            String   @default("PENDING") // PENDING, CONFIRMED, FAILED
+  confirmations     Int      @default(0)
+  gasUsed           String?
+  gasFee            String?
+  detectedAt        DateTime @default(now())
+  confirmedAt       DateTime?
+  metadata          String   @default("{}") // JSON: additional payment data
+  
+  // Relations
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("payments")
+}
+
+model AutomatedPayroll {
+  id                String   @id @default(cuid())
+  repositoryId      String
+  ruleName          String   @default("default")
+  frequency         String   @default("weekly") // daily, weekly, monthly
+  distributionRule  String   @default("PR_COUNT_PROPORTIONAL")
+  minimumAmount     Float    @default(0)
+  maximumAmount     Float?
+  enabled           Boolean  @default(false)
+  lastRunAt         DateTime?
+  nextRunAt         DateTime?
+  totalRuns         Int      @default(0)
+  successfulRuns    Int      @default(0)
+  failedRuns        Int      @default(0)
+  lastError         String?
+  configuration     String   @default("{}") // JSON: detailed config
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  repository        Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  
+  @@map("automated_payroll")
+}
+
+model NotificationQueue {
+  id                String   @id @default(cuid())
+  type              String   // "email", "webhook", "in_app"
+  recipient         String   // Email or user ID
+  subject           String?
+  content           String   // Email body or notification content
+  templateId        String?
+  templateData      String   @default("{}") // JSON: template variables
+  priority          Int      @default(0) // Higher = more priority
+  status            String   @default("PENDING") // PENDING, SENT, FAILED, CANCELLED
+  attempts          Int      @default(0)
+  maxAttempts       Int      @default(3)
+  lastAttempt       DateTime?
+  scheduledFor      DateTime @default(now())
+  sentAt            DateTime?
+  error             String?
+  metadata          String   @default("{}") // JSON: additional data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("notification_queue")
 }
