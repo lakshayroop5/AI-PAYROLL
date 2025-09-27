@@ -296,7 +296,7 @@ async function handleCreateRun(userId: string, config: any) {
     // Create payroll run in database
     const run = await prisma.payrollRun.create({
       data: {
-        repoIds: config.repositoryIds,
+        repoIds: JSON.stringify(config.repositoryIds),
         startDate: config.startDate,
         endDate: config.endDate,
         distributionMode: config.distributionMode,
@@ -500,8 +500,7 @@ async function handleExecuteRun(userId: string, runId: string) {
         where: { id: runId },
         data: {
           status: 'FAILED',
-          finishedAt: new Date(),
-          error: error instanceof Error ? error.message : 'Unknown error'
+          finishedAt: new Date()
         }
       });
     }

@@ -429,10 +429,9 @@ export class HederaAgentService {
           await prisma.payout.updateMany({
             where: { runId },
             data: {
-              status: 'CONFIRMED',
+              status: 'PAID',
               txId: result.transactionId,
-              scheduleId: result.scheduleId,
-              confirmedAt: new Date()
+              updatedAt: new Date()
             }
           });
         } else if (result.error) {

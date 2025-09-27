@@ -38,6 +38,8 @@ export default function ContributorsPage() {
   const [loading, setLoading] = useState(true);
   const [editingWallet, setEditingWallet] = useState<string | null>(null);
   const [walletInputs, setWalletInputs] = useState<Record<string, string>>({});
+  const [selectedRepository, setSelectedRepository] = useState<string>('all');
+  const [repositories, setRepositories] = useState<string[]>([]);
 
   useEffect(() => {
     fetchContributors();
@@ -49,7 +51,19 @@ export default function ContributorsPage() {
       const response = await fetch('/api/contributors/github-stats');
       if (response.ok) {
         const data = await response.json();
-        setContributors(data.contributors || []);
+        if (data.success) {
+          const contributorList = data.contributors || [];
+          setContributors(contributorList);
+          
+          // Extract unique repository names
+          const allRepos = new Set<string>();
+          contributorList.forEach((contributor: Contributor) => {
+            contributor.stats.repositories.forEach((repo: string) => {
+              allRepos.add(repo);
+            });
+          });
+          setRepositories(Array.from(allRepos).sort());
+        }
       }
     } catch (error) {
       console.error('Error fetching contributors:', error);
@@ -57,6 +71,13 @@ export default function ContributorsPage() {
       setLoading(false);
     }
   }
+
+  // Filter contributors by selected repository
+  const filteredContributors = selectedRepository === 'all' 
+    ? contributors
+    : contributors.filter(contributor => 
+        contributor.stats.repositories.includes(selectedRepository)
+      );
 
   function getStatusBadge(contributor: Contributor) {
     if (contributor.hederaAccountId) {
@@ -157,10 +178,30 @@ export default function ContributorsPage() {
           </div>
         </div>
 
-        {/* Contributors List */}
+        {/* Repository Filter */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Active Contributors</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">Contributors by Repository</h3>
+              <div className="flex items-center space-x-3">
+                <label className="text-sm text-gray-600">Filter by repository:</label>
+                <select
+                  value={selectedRepository}
+                  onChange={(e) => setSelectedRepository(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  <option value="all">All Repositories ({contributors.length})</option>
+                  {repositories.map(repo => {
+                    const count = contributors.filter(c => c.stats.repositories.includes(repo)).length;
+                    return (
+                      <option key={repo} value={repo}>
+                        {repo} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
           </div>
           
           {loading ? (
@@ -168,9 +209,9 @@ export default function ContributorsPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-sm text-gray-500">Loading contributors...</p>
             </div>
-          ) : contributors.length > 0 ? (
+          ) : filteredContributors.length > 0 ? (
             <div className="divide-y divide-gray-200">
-              {contributors.map((contributor) => (
+              {filteredContributors.map((contributor) => (
                 <div key={contributor.id} className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -197,14 +238,32 @@ export default function ContributorsPage() {
                         <p className="text-sm text-gray-500">@{contributor.githubLogin}</p>
                         <div className="flex items-center space-x-4 mt-1">
                           <span className="text-xs text-gray-400">
-                            {contributor.stats.totalPRs} PRs
+                            {contributor.stats.totalCommits} commits
                           </span>
                           <span className="text-xs text-gray-400">
-                            {contributor.stats.totalCommits} commits
+                            {contributor.stats.totalPRs} PRs
                           </span>
                           <span className="text-xs text-gray-400">
                             {contributor.stats.repositories.length} repos
                           </span>
+                        </div>
+                        {/* Repository tags */}
+                        <div className="flex items-center space-x-1 mt-2 flex-wrap">
+                          <span className="text-xs text-gray-500 mr-1">Repositories:</span>
+                          {contributor.stats.repositories.slice(0, 3).map((repo, index) => (
+                            <span 
+                              key={repo}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
+                              onClick={() => setSelectedRepository(repo)}
+                            >
+                              {repo.split('/').pop() || repo}
+                            </span>
+                          ))}
+                          {contributor.stats.repositories.length > 3 && (
+                            <span className="text-xs text-gray-400">
+                              +{contributor.stats.repositories.length - 3} more
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -307,10 +366,25 @@ export default function ContributorsPage() {
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No contributors</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  {selectedRepository === 'all' ? 'No contributors found' : `No contributors in ${selectedRepository}`}
+                </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Contributors will appear here once they set up their profiles.
+                  {selectedRepository === 'all' 
+                    ? 'Contributors will appear here once repositories are connected and they make contributions.' 
+                    : 'Try selecting a different repository or "All Repositories" to see more contributors.'
+                  }
                 </p>
+                {selectedRepository !== 'all' && (
+                  <Button 
+                    onClick={() => setSelectedRepository('all')} 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                  >
+                    View All Contributors
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -324,8 +398,13 @@ export default function ContributorsPage() {
                 <span className="text-2xl">👥</span>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total Contributors</p>
-                <p className="text-2xl font-semibold text-gray-900">{contributors.length}</p>
+                <p className="text-sm font-medium text-gray-500">
+                  {selectedRepository === 'all' ? 'Total Contributors' : 'Contributors in Repo'}
+                </p>
+                <p className="text-2xl font-semibold text-gray-900">{filteredContributors.length}</p>
+                {selectedRepository !== 'all' && (
+                  <p className="text-xs text-gray-400">of {contributors.length} total</p>
+                )}
               </div>
             </div>
           </div>
@@ -338,8 +417,11 @@ export default function ContributorsPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Ready for Payouts</p>
                 <p className="text-2xl font-semibold text-green-600">
-                  {contributors.filter(c => c.hederaAccountId).length}
+                  {filteredContributors.filter(c => c.hederaAccountId).length}
                 </p>
+                {selectedRepository !== 'all' && (
+                  <p className="text-xs text-gray-400">of {contributors.filter(c => c.hederaAccountId).length} total</p>
+                )}
               </div>
             </div>
           </div>
@@ -352,8 +434,11 @@ export default function ContributorsPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Need Wallets</p>
                 <p className="text-2xl font-semibold text-yellow-600">
-                  {contributors.filter(c => !c.hederaAccountId).length}
+                  {filteredContributors.filter(c => !c.hederaAccountId).length}
                 </p>
+                {selectedRepository !== 'all' && (
+                  <p className="text-xs text-gray-400">of {contributors.filter(c => !c.hederaAccountId).length} total</p>
+                )}
               </div>
             </div>
           </div>

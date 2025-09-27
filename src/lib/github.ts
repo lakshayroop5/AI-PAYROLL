@@ -122,10 +122,33 @@ export class GitHubService {
         requestParams.affiliation = 'owner,collaborator,organization_member';
       }
 
-      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser(requestParams);
+      console.log('🔄 Fetching repositories from GitHub API...');
+      
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('GitHub API request timeout (20s)')), 20000);
+      });
 
+      const apiPromise = this.octokit.rest.repos.listForAuthenticatedUser(requestParams);
+      
+      const { data } = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+      console.log(`✅ Successfully fetched ${data.length} repositories`);
       return data as GitHubRepo[];
     } catch (error) {
+      console.error('❌ GitHub API Error:', error);
+      
+      // Check if it's a network/timeout error
+      if (error instanceof Error && (
+        error.message.includes('timeout') || 
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('Connect Timeout') ||
+        error.message.includes('ENOTFOUND')
+      )) {
+        throw new Error(`GitHub API is currently unavailable. Please check your internet connection and try again later. (${error.message})`);
+      }
+      
       throw new Error(`Failed to fetch repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
