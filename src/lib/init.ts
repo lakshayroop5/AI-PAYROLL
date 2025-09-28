@@ -7,7 +7,7 @@ import { integrationManager } from './integrations/manager';
 import { prisma } from './db';
 
 export async function initializeSystem(): Promise<void> {
-  console.log('🚀 Initializing AI Payroll System...');
+  console.log('🚀 Initializing Foss It System...');
   
   try {
     // Check database connection
@@ -23,7 +23,7 @@ export async function initializeSystem(): Promise<void> {
     // Create default system configuration if needed
     await initializeSystemConfig();
     
-    console.log('🎉 AI Payroll System initialization complete!');
+    console.log('🎉 Foss It System initialization complete!');
     
   } catch (error) {
     console.error('❌ System initialization failed:', error);
@@ -121,7 +121,7 @@ async function initializeSystemConfig(): Promise<void> {
  * Shutdown system gracefully
  */
 export async function shutdownSystem(): Promise<void> {
-  console.log('🛑 Shutting down AI Payroll System...');
+  console.log('🛑 Shutting down Foss It System...');
   
   try {
     // Shutdown integration manager
@@ -130,7 +130,7 @@ export async function shutdownSystem(): Promise<void> {
     // Disconnect from database
     await prisma.$disconnect();
     
-    console.log('✅ AI Payroll System shutdown complete');
+    console.log('✅ Foss It System shutdown complete');
   } catch (error) {
     console.error('❌ System shutdown failed:', error);
     throw error;

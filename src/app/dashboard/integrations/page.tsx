@@ -93,7 +93,7 @@ export default function IntegrationsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">System Integrations</h1>
             <p className="text-gray-600 mt-1">
-              Monitor and manage AI Payroll system integrations
+              Monitor and manage Foss It system integrations
             </p>
           </div>
           <div className="flex gap-2">

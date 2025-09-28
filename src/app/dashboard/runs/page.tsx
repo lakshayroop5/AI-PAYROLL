@@ -71,7 +71,7 @@ export default function PayrollRunsPage() {
             contributions.map((c: any) => `• ${c.contributor}: ${c.contributions} contributions → $${c.amount} (${c.percentage})`).join('\n');
         }
         
-        const summaryText = `✅ AI Payroll executed successfully!
+        const summaryText = `✅ Foss It executed successfully!
         
 Budget Distribution: $${result.data.totalAmountUsd} / $${result.data.totalBudget || 1000}
 Based on ${result.data.totalContributions || 'demo'} total contributions

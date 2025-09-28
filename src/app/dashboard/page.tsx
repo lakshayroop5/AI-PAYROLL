@@ -85,7 +85,7 @@ export default function DashboardPage() {
               Welcome back, {session?.user.name || session?.user.email}!
             </h1>
             <p className="text-gray-600 mt-1">
-              Here's what's happening with your AI Payroll system.
+              Here's what's happening with your Foss It system.
             </p>
           </div>
           
@@ -403,7 +403,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">Explore Documentation</p>
                     <p className="text-sm text-gray-500">
-                      Learn more about AI Payroll features and best practices
+                      Learn more about Foss It features and best practices
                     </p>
                     <a href="#" className="text-sm text-blue-600 hover:text-blue-700">
                       Read docs →

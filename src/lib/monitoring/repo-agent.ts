@@ -177,7 +177,7 @@ export class RepoAgentService {
       const emailService = new EmailService({
         apiKey: process.env.SENDGRID_API_KEY || '',
         fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
-        fromName: 'AI Payroll System'
+        fromName: 'Foss It System'
       });
       
       await emailService.sendSystemNotification(
@@ -216,7 +216,7 @@ export class RepoAgentService {
         const emailService = new EmailService({
           apiKey: process.env.SENDGRID_API_KEY || '',
           fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
-          fromName: 'AI Payroll System'
+          fromName: 'Foss It System'
         });
         
         await emailService.sendSystemNotification(

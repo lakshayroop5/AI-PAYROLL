@@ -250,7 +250,7 @@ export class PayrollExecutionService {
           recipientAccountId: contributor.hederaAccountId,
           amount: distribution.nativeAmount,
           asset: asset,
-          memo: `AI Payroll - Run ${this.executionContext.runId}`,
+          memo: `Foss It - Run ${this.executionContext.runId}`,
           idempotencyKey: this.createIdempotencyKey(distribution.contributorId)
         };
 

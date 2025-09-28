@@ -99,7 +99,7 @@ export async function GET(
           submittedAt: payout.submittedAt,
           confirmedAt: payout.confirmedAt,
           contributor: {
-            githubHandle: payout.contributor.user?.githubLogin || 'unknown',
+            githubHandle: payout.contributor.githubHandle || payout.contributor.user?.githubLogin || 'unknown',
             hederaAccountId: payout.contributor.hederaAccountId
           }
         })),

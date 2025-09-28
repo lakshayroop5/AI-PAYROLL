@@ -140,7 +140,7 @@ export default function RegisterWalletPage() {
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h3 className="font-medium text-blue-900 mb-2">🎉 You're eligible for payouts!</h3>
                 <p className="text-blue-700 text-sm">
-                  As a contributor to repositories using our AI Payroll system, you can receive 
+                  As a contributor to repositories using our Foss It system, you can receive 
                   cryptocurrency payments directly to your Hedera wallet.
                 </p>
               </div>

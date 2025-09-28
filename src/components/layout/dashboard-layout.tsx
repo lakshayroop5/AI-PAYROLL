@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-blue-600 text-white">
-            <h1 className="text-xl font-bold">AI Payroll</h1>
+            <h1 className="text-xl font-bold">Foss It</h1>
           </div>
 
           {/* User info */}

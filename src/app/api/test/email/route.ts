@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { to, subject = 'Test Email from AI Payroll System' } = await request.json();
+    const { to, subject = 'Test Email from Foss It System' } = await request.json();
     
     if (!to) {
       return NextResponse.json({ error: 'Recipient email required' }, { status: 400 });
@@ -23,12 +23,12 @@ export async function POST(request: NextRequest) {
     const emailService = new EmailService({
       apiKey: process.env.SENDGRID_API_KEY || '',
       fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
-      fromName: 'AI Payroll System'
+      fromName: 'Foss It System'
     });
 
     const result = await emailService.sendSystemNotification(
       subject,
-      `Hello! This is a test email from your AI Payroll System.\n\n` +
+      `Hello! This is a test email from your Foss It System.\n\n` +
       `✅ SendGrid integration is working correctly!\n` +
       `✅ Email service is properly configured\n` +
       `✅ System notifications will be delivered\n\n` +

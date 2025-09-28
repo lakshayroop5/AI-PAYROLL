@@ -273,8 +273,7 @@ export async function POST(request: NextRequest) {
           contributions: contributor.contributions,
           shareRatio: contributor.shareRatio,
           transactionId,
-          walletType: contributor.hederaAccountId?.startsWith('0x') ? 'Ethereum' : 
-                      contributor.hederaAccountId?.match(/^0\.0\.\d+$/) ? 'Hedera' : 'Other'
+          walletType: 'Hedera'  // All payments in execute-hedera are Hedera payments
         });
 
       } catch (error) {

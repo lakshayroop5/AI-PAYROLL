@@ -111,7 +111,7 @@ export class IntegrationManager {
     this.emailService = new EmailService({
       apiKey: process.env.SENDGRID_API_KEY || '',
       fromEmail: process.env.SENDGRID_FROM_EMAIL || '',
-      fromName: 'AI Payroll System'
+      fromName: 'Foss It System'
     });
 
     console.log('Service instances initialized');
@@ -518,8 +518,8 @@ export class IntegrationManager {
     try {
       if (this.emailService) {
         await this.emailService.sendSystemNotification(
-          'AI Payroll System Started',
-          `The AI Payroll System has been successfully started.\n\n` +
+          'Foss It System Started',
+          `The Foss It System has been successfully started.\n\n` +
           `Startup time: ${new Date().toISOString()}\n` +
           `Integrations initialized:\n` +
           `- The Graph: ${this.graphClient ? '✅' : '❌'}\n` +

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         const testPayment = await hederaService.executePayment([{
           recipientId: process.env.HEDERA_ACCOUNT_ID, // Send to self
           amount: 1, // 1 tinybar
-          memo: 'AI Payroll System Test Payment'
+          memo: 'Foss It System Test Payment'
         }]);
         
         return NextResponse.json({
