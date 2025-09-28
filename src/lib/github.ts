@@ -122,10 +122,33 @@ export class GitHubService {
         requestParams.affiliation = 'owner,collaborator,organization_member';
       }
 
-      const { data } = await this.octokit.rest.repos.listForAuthenticatedUser(requestParams);
+      console.log('🔄 Fetching repositories from GitHub API...');
+      
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('GitHub API request timeout (20s)')), 20000);
+      });
 
+      const apiPromise = this.octokit.rest.repos.listForAuthenticatedUser(requestParams);
+      
+      const { data } = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+      console.log(`✅ Successfully fetched ${data.length} repositories`);
       return data as GitHubRepo[];
     } catch (error) {
+      console.error('❌ GitHub API Error:', error);
+      
+      // Check if it's a network/timeout error
+      if (error instanceof Error && (
+        error.message.includes('timeout') || 
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('Connect Timeout') ||
+        error.message.includes('ENOTFOUND')
+      )) {
+        throw new Error(`GitHub API is currently unavailable. Please check your internet connection and try again later. (${error.message})`);
+      }
+      
       throw new Error(`Failed to fetch repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -468,6 +491,71 @@ export class GitHubService {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get repository contributors
+   */
+  async getRepoContributors(owner: string, repo: string) {
+    try {
+      await this.respectRateLimit();
+      
+      console.log(`📊 Fetching contributors for ${owner}/${repo}...`);
+      
+      const { data } = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 100
+      });
+
+      console.log(`✅ Found ${data.length} contributors for ${owner}/${repo}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Failed to get contributors for ${owner}/${repo}:`, error);
+      throw new Error(`Failed to get repository contributors: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get repository collaborators (includes maintainers)
+   */
+  async getRepoCollaborators(owner: string, repo: string) {
+    try {
+      await this.respectRateLimit();
+      
+      console.log(`👥 Fetching collaborators for ${owner}/${repo}...`);
+      
+      const { data } = await this.octokit.rest.repos.listCollaborators({
+        owner,
+        repo,
+        per_page: 100
+      });
+
+      console.log(`✅ Found ${data.length} collaborators for ${owner}/${repo}`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Failed to get collaborators for ${owner}/${repo}:`, error);
+      // Don't throw error for collaborators as it might be private repo
+      return [];
+    }
+  }
+
+  /**
+   * Get user details
+   */
+  async getUser(username: string) {
+    try {
+      await this.respectRateLimit();
+      
+      const { data } = await this.octokit.rest.users.getByUsername({
+        username
+      });
+
+      return data;
+    } catch (error) {
+      console.error(`Failed to get user ${username}:`, error);
+      throw new Error(`Failed to get user details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

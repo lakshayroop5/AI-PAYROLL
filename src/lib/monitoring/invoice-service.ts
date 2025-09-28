@@ -205,7 +205,7 @@ export class InvoiceService {
       <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">AI Payroll Invoice</h1>
+            <h1 style="color: #2563eb;">Foss It Invoice</h1>
             
             <p>Dear ${invoice.organizationName} team,</p>
             
@@ -261,7 +261,7 @@ export class InvoiceService {
             <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
             
             <p>Best regards,<br>
-            The AI Payroll Team</p>
+            The Foss It Team</p>
             
             <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
             <p style="font-size: 12px; color: #64748b;">
@@ -295,7 +295,7 @@ Network: ${invoice.paymentMethod || 'Hedera Hashgraph (HBAR)'}
 Thank you for using our open-source project!
 
 Best regards,
-The AI Payroll Team
+The Foss It Team
     `;
 
     return {

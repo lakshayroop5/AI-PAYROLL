@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import DashboardLayout from '@/components/layout/dashboard-layout';
 import { Button } from '@/components/ui/button';
 import AnalyticsDashboard from '@/components/repository/AnalyticsDashboard';
+import EnhancedAnalytics from '@/components/dashboard/EnhancedAnalytics';
 
 interface Repository {
   id: string;
@@ -314,7 +315,7 @@ export default function RepositoriesPage() {
                 </Button>
               </div>
             ) : selectedRepoId ? (
-              <AnalyticsDashboard 
+              <EnhancedAnalytics 
                 repositoryId={selectedRepoId}
                 repositoryName={repositories.find(r => r.id === selectedRepoId)?.fullName || 'Repository'}
               />

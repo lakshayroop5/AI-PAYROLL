@@ -5,14 +5,24 @@
  */
 
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SafeLink } from '@/components/ui/safe-link';
 import { Button } from '@/components/ui/button';
 import DashboardLayout from '@/components/layout/dashboard-layout';
 
+interface Repository {
+  id: string;
+  name: string;
+  fullName: string;
+  url: string;
+  isActive: boolean;
+}
+
 export default function NewPayrollRunPage() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [repositoriesLoading, setRepositoriesLoading] = useState(true);
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
@@ -23,6 +33,50 @@ export default function NewPayrollRunPage() {
 
   const isManager = session?.user.roles?.includes('manager');
   const isSelfVerified = session?.user.selfVerified;
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchRepositories();
+    }
+  }, [session]);
+
+  async function fetchRepositories() {
+    try {
+      setRepositoriesLoading(true);
+      const response = await fetch('/api/repositories');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Repository API response:', data); // Debug log
+        
+        // Transform storedRepos to match our interface
+        const transformedRepos: Repository[] = (data.storedRepos || []).map((repo: any) => ({
+          id: repo.id,
+          name: repo.name,
+          fullName: repo.fullName,
+          url: `https://github.com/${repo.fullName}`,
+          isActive: repo.active
+        }));
+        
+        setRepositories(transformedRepos);
+        console.log('Transformed repositories:', transformedRepos); // Debug log
+      } else {
+        console.error('Failed to fetch repositories:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching repositories:', error);
+    } finally {
+      setRepositoriesLoading(false);
+    }
+  }
+
+  function toggleRepository(repoId: string) {
+    setFormData(prev => ({
+      ...prev,
+      repositories: prev.repositories.includes(repoId)
+        ? prev.repositories.filter(id => id !== repoId)
+        : [...prev.repositories, repoId]
+    }));
+  }
 
   if (!isManager) {
     return (
@@ -53,24 +107,65 @@ export default function NewPayrollRunPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Validation
+    if (formData.repositories.length === 0) {
+      alert('Please select at least one repository for the payroll run.');
+      return;
+    }
+
+    if (!formData.startDate || !formData.endDate) {
+      alert('Please select both start and end dates.');
+      return;
+    }
+
+    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+      alert('End date must be after start date.');
+      return;
+    }
+
+    if (!formData.usdBudget || parseFloat(formData.usdBudget) <= 0) {
+      alert('Please enter a valid budget amount.');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Transform form data to match API expectations
+      const payrollData = {
+        action: 'create',
+        repositoryIds: formData.repositories,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        usdBudget: parseFloat(formData.usdBudget),
+        asset: formData.asset,
+        distributionMode: 'PR_COUNT_PROPORTIONAL',
+        environment: 'testnet'
+      };
+
+      console.log('Sending payroll data:', payrollData); // Debug log
+
       const response = await fetch('/api/payroll/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payrollData),
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Payroll creation result:', result); // Debug log
+        alert(`✅ Payroll run created successfully!\nRun ID: ${result.run?.id || 'N/A'}`);
         // Redirect to runs page
         window.location.href = '/dashboard/runs';
       } else {
-        alert('Failed to create payroll run');
+        const error = await response.json();
+        console.error('Payroll creation error:', error); // Debug log
+        alert(`Failed to create payroll run: ${error.error || 'Unknown error'}\n\nStatus: ${response.status}\nDetails: ${JSON.stringify(error, null, 2)}`);
       }
     } catch (error) {
       console.error('Error creating payroll run:', error);
-      alert('Error creating payroll run');
+      alert('Error creating payroll run. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -163,9 +258,65 @@ export default function NewPayrollRunPage() {
                 Repositories
               </label>
               <div className="mt-1 p-4 border border-gray-300 rounded-md">
-                <p className="text-sm text-gray-500">
-                  No repositories connected. <SafeLink href="/dashboard/repositories" className="text-blue-600 hover:text-blue-700">Add repositories</SafeLink> to include them in payroll runs.
-                </p>
+                {repositoriesLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-gray-500">Loading repositories...</span>
+                  </div>
+                ) : repositories.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-700 mb-3">
+                      Select repositories to include in this payroll run:
+                    </p>
+                    {repositories.map((repo) => (
+                      <label key={repo.id} className="flex items-start space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={formData.repositories.includes(repo.id)}
+                          onChange={() => toggleRepository(repo.id)}
+                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {repo.name}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              repo.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {repo.isActive ? 'Active' : 'Setup Pending'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {repo.fullName}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                    {formData.repositories.length > 0 && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                        <p className="text-sm text-blue-800">
+                          ✓ {formData.repositories.length} repository{formData.repositories.length > 1 ? 'ies' : 'y'} selected for payroll run
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-500">
+                      No repositories found. 
+                    </p>
+                    <SafeLink href="/dashboard/repositories" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                      Add repositories
+                    </SafeLink>
+                    <span className="text-sm text-gray-500"> to include them in payroll runs.</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -189,10 +340,20 @@ export default function NewPayrollRunPage() {
               <SafeLink href="/dashboard/runs">
                 <Button variant="outline">Cancel</Button>
               </SafeLink>
-              <Button type="submit" disabled={loading}>
+              <Button 
+                type="submit" 
+                disabled={loading || formData.repositories.length === 0}
+                className={formData.repositories.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+              >
                 {loading ? 'Creating...' : 'Create Payroll Run'}
               </Button>
             </div>
+            
+            {formData.repositories.length === 0 && repositories.length > 0 && (
+              <p className="text-xs text-amber-600 text-center">
+                Please select at least one repository to create a payroll run
+              </p>
+            )}
           </form>
         </div>
 

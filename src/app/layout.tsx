@@ -9,10 +9,10 @@ import { Providers } from '@/components/providers';
 // Use system fonts to avoid Google Fonts connectivity issues
 
 export const metadata: Metadata = {
-  title: 'AI Payroll System - Hedera',
+  title: 'Foss It System - Hedera',
   description: 'Decentralized payroll system with Self identity verification, GitHub integration, and Hedera settlements',
   keywords: ['payroll', 'blockchain', 'hedera', 'github', 'defi', 'identity'],
-  authors: [{ name: 'AI Payroll Team' }],
+  authors: [{ name: 'Foss It Team' }],
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon-16x16.png',

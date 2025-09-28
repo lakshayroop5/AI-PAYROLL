@@ -30,9 +30,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'GitHub access token not found' }, { status: 400 });
     }
 
-    // Get repositories from GitHub
+    // Get repositories from GitHub with fallback
     const githubService = createGitHubService(user.githubAccessToken);
-    const githubRepos = await githubService.getUserRepos();
+    let githubRepos: any[] = [];
+    let githubError: string | null = null;
+
+    try {
+      githubRepos = await githubService.getUserRepos();
+      console.log(`✅ Successfully fetched ${githubRepos.length} repos from GitHub`);
+    } catch (error) {
+      console.warn('⚠️ GitHub API failed, using stored repositories as fallback:', error);
+      githubError = error instanceof Error ? error.message : 'GitHub API unavailable';
+    }
 
     // Filter repositories where user has admin/maintain permissions
     const adminRepos = githubRepos.filter(repo => 
@@ -63,7 +72,8 @@ export async function GET(request: NextRequest) {
         includeLabels: JSON.parse(repo.includeLabels || "[]"),
         excludeLabels: JSON.parse(repo.excludeLabels || "[]"),
         createdAt: repo.createdAt
-      }))
+      })),
+      githubError // Include error info if GitHub API failed
     });
   } catch (error) {
     console.error('Error fetching repositories:', error);

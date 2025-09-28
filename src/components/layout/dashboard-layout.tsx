@@ -23,6 +23,8 @@ const navigation: NavItem[] = [
   { name: 'Repositories', href: '/dashboard/repositories', icon: '📁', roles: ['manager'] },
   { name: 'Contributors', href: '/dashboard/contributors', icon: '👥' },
   { name: 'Payroll Runs', href: '/dashboard/runs', icon: '💰', roles: ['manager'] },
+  { name: 'Integrations', href: '/dashboard/integrations', icon: '🔗', roles: ['manager'] },
+  { name: 'Admin', href: '/dashboard/admin', icon: '⚡', roles: ['manager'] },
   { name: 'Profile', href: '/dashboard/profile', icon: '👤' },
   { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ];
@@ -80,7 +82,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4 bg-blue-600 text-white">
-            <h1 className="text-xl font-bold">AI Payroll</h1>
+            <h1 className="text-xl font-bold">Foss It</h1>
           </div>
 
           {/* User info */}

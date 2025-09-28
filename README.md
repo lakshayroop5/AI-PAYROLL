@@ -1,6 +1,6 @@
-# AI Agent Payroll on Hedera
+# AI Agent Payroll System
 
-A production-ready, decentralized payroll system with Self identity verification, GitHub integration, Pyth pricing, Hedera settlements, and Lighthouse (Filecoin) storage for immutable payroll slips.
+**An end-to-end automated payroll system for GitHub repositories with deep analytics, corporate user detection, automated invoicing, and decentralized payments.**
 
 ## 🌟 Key Features
 
